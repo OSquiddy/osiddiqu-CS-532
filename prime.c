@@ -3,12 +3,15 @@
 #include <math.h>
 
 /*
-* Compilation: gcc -o prime prime.c -lm
-* To run the program: ./prime
+* To compile and run this code, paste the commands inside the double quotes into your terminal.
+* DO NOT copy the double quotes as well.
+* 	- Compilation: "gcc -o prime prime.c -lm"
+* 	- Execution: "./prime"
 * 
-* Note: The -lm flag is needed for the math library.
+* Note: The -lm flag is needed for the math library	as per the the accepted answer on https://stackoverflow.com/questions/10409032/why-am-i-getting-undefined-reference-to-sqrt-error-even-though-i-include-math.
 */
 bool isPrime(int number) {
+	// The syntax for the sqrt function was taken from https://www.programiz.com/c-programming/library-function/math.h/sqrt
     double squareRoot = sqrt((double)number);
 	int count = 0;
 	int i;
