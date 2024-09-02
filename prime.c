@@ -2,6 +2,12 @@
 #include <stdbool.h>
 #include <math.h>
 
+/*
+* Compilation: gcc -o prime prime.c -lm
+* To run the program: ./prime
+* 
+* Note: The -lm flag is needed for the math library.
+*/
 bool isPrime(int number) {
     double squareRoot = sqrt((double)number);
 	int count = 0;
