@@ -1,3 +1,11 @@
+/* 
+Name: Mohammed Omar Siddiqui
+BlazerId: osiddiqu
+Homework #: 4
+To compile: "gcc -Wall -o hw4 osiddiqu_HW04.c -lpthread" OR "make"
+To run: "./hw4"
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
