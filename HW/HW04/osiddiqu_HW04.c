@@ -15,27 +15,23 @@
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 int childPid;
-int sum, sum_check;
+int sum = 0, sum_check = 0;
 int pipefd[2];
 
 void *randomGenerator(void *arg) {
-    // int *thread_id = (int *)arg;
+
     srand(pthread_self());
-    int array[500];
 
     for (int i = 0; i < 500; i++) {
         int random_number = rand() % 1001;
-        array[i] = random_number;
         pthread_mutex_lock(&mutex);
         sum_check += random_number;
+        if (write(pipefd[1], &random_number, sizeof(random_number)) == -1) {
+            perror("write");
+            exit(-1);
+        };
         pthread_mutex_unlock(&mutex);
     }
-
-    pthread_mutex_lock(&mutex);
-    write(pipefd[1], array, sizeof(array));
-    pthread_mutex_unlock(&mutex);
-
-    // printf("[Parent] Finished thread %d\n", *thread_id);
 
     return NULL;
 
@@ -43,17 +39,12 @@ void *randomGenerator(void *arg) {
 
 void *calculateSum (void *arg) {
     int local_sum = 0;
-    int myArray[CHILD_THREAD_NUMBERS];
-
-    // pthread_mutex_lock(&mutex);
-    read(pipefd[0], myArray, sizeof(myArray));
-    // pthread_mutex_unlock(&mutex);
+    int number;
 
     for (int i = 0; i < CHILD_THREAD_NUMBERS; i++) {
-        printf("%d ", myArray[i]);
-        local_sum += myArray[i];
+        read(pipefd[0], &number, sizeof(number));
+        local_sum += number;
     }
-
 
     pthread_mutex_lock(&mutex);
     sum += local_sum;
@@ -82,14 +73,9 @@ static void run_child_program(int signo) {
 int main (int argc, char *argv[]) {
 
     pid_t pid;
-    // int status;
+    int status;
     double avg;
     pthread_t *tid_p;
-    
-    if (signal(SIGUSR1, run_child_program) == SIG_ERR) {
-        printf("Something went wrong with capturing the signal.\n");
-        exit(-1);
-    }
 
     if (argc != 1) {
         printf("Usage: %s\n", argv[0]);
@@ -100,22 +86,24 @@ int main (int argc, char *argv[]) {
         perror("pipe");
         exit(-1);
     }
-        
-    // printf("Created pipe successfully\n");
+
     pid = fork();
 
     if (pid == 0) {
-
+        if (signal(SIGUSR1, run_child_program) == SIG_ERR) {
+            printf("Something went wrong with capturing the signal.\n");
+            exit(-1);
+        }
 
         childPid = getpid();
         close(pipefd[1]);
-        // if (dup2(pipefd[0], 0) == -1) {
-        //     perror("dup2");
-        //     exit(-1);
-        // }
+
 
         printf("Child processs waiting for signal...\n");
         pause();
+
+        double result = (double) sum / 1500;
+        printf("Calcuated avg = %.2f\n", result);
 
         exit(0);
 
@@ -125,31 +113,22 @@ int main (int argc, char *argv[]) {
         tid_p = (pthread_t *)malloc(sizeof(pthread_t) * NUM_THREADS_P);
 
         for (int i = 0; i < NUM_THREADS_P; i++) {
-            // printf("Created thread %d\n", i);
             pthread_create(&tid_p[i], NULL, randomGenerator, (void *)i);
         }
 
         for (int i = 0; i < NUM_THREADS_P; i++) {
             pthread_join(tid_p[i], NULL);
-            // printf("Thread %d finished\n", i);
         }
 
-        avg = (double) sum_check / 1500;
-        printf("\nExpected average: (%d / 1500) = %.2f\n", sum_check, avg);
-
-        if (raise(SIGUSR1) == -1) {
-            printf("Raise failed");
-            perror("raise");
+        if (kill(pid, SIGUSR1) == -1) {
+            perror("kill");
             exit(-1);
-        };
+        }
         
-        // wait(&status);
-        // if (WIFEXITED(status)) {
-        //     printf("Child process exited with status = %d\n", WIFEXITED(status));
-        // }
+        wait(&status);
 
-        double result = (double) sum / 1500;
-        printf("Calcuated avg: (%d / 1500) = %.2f\n", sum, result);
+        avg = (double) sum_check / 1500;
+        printf("Expected average = %.2f\n", avg);
 
 
     } else {
