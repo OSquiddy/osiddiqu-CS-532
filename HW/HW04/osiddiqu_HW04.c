@@ -7,6 +7,7 @@
 #include <sys/wait.h>
 #include <string.h>
 #include <time.h>
+#include <fcntl.h>
 
 #define NUM_THREADS_P 3
 #define NUM_THREADS_C 10
@@ -14,7 +15,6 @@
 
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
-int childPid;
 int sum = 0, sum_check = 0;
 int pipefd[2];
 
@@ -57,12 +57,11 @@ static void run_child_program(int signo) {
     pthread_t *tid_c;
 
     printf("SIGUSR1 signal has been received.\n");
-    printf("Child process now running calculations.\n");
 
     tid_c = (pthread_t *)malloc(sizeof(pthread_t) * NUM_THREADS_C);
 
     for (int i = 0; i < NUM_THREADS_C; i++) {
-        pthread_create(&tid_c[i], NULL, calculateSum, (void *)i);
+        pthread_create(&tid_c[i], NULL, calculateSum, (void *) (long) i);
     }
 
     for (int i = 0; i < NUM_THREADS_C; i++) {
@@ -76,6 +75,7 @@ int main (int argc, char *argv[]) {
     int status;
     double avg;
     pthread_t *tid_p;
+    int fdwrite;
 
     if (argc != 1) {
         printf("Usage: %s\n", argv[0]);
@@ -87,15 +87,22 @@ int main (int argc, char *argv[]) {
         exit(-1);
     }
 
+    if ((fdwrite = open("output.txt", O_CREAT | O_APPEND | O_WRONLY, 0755)) == -1) {
+        printf("Error opening file for output\n");
+        exit(-1);
+    }
+
     pid = fork();
 
     if (pid == 0) {
+        dup2(fdwrite, 1);
+
         if (signal(SIGUSR1, run_child_program) == SIG_ERR) {
             printf("Something went wrong with capturing the signal.\n");
             exit(-1);
         }
 
-        childPid = getpid();
+
         close(pipefd[1]);
 
 
@@ -105,6 +112,7 @@ int main (int argc, char *argv[]) {
         double result = (double) sum / 1500;
         printf("Calcuated avg = %.2f\n", result);
 
+        close(pipefd[0]);
         exit(0);
 
     } else if (pid > 0) {
@@ -113,7 +121,7 @@ int main (int argc, char *argv[]) {
         tid_p = (pthread_t *)malloc(sizeof(pthread_t) * NUM_THREADS_P);
 
         for (int i = 0; i < NUM_THREADS_P; i++) {
-            pthread_create(&tid_p[i], NULL, randomGenerator, (void *)i);
+            pthread_create(&tid_p[i], NULL, randomGenerator, (void *) (long) i);
         }
 
         for (int i = 0; i < NUM_THREADS_P; i++) {
@@ -130,13 +138,14 @@ int main (int argc, char *argv[]) {
         avg = (double) sum_check / 1500;
         printf("Expected average = %.2f\n", avg);
 
-
+        close(pipefd[1]);
     } else {
         printf("Something went wrong: %d\n", pid);
         perror("fork");
         exit(-1);
     }
 
+    close(fdwrite);
 
     return 0;
 }
